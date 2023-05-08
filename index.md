@@ -20,8 +20,7 @@ Textacy is a tool built on top of [spacy](https://spacy.io/) that handles proble
 
 However, in our tutorial we will be focusing on three common use cases of textacy from above.
 1. Loading a prepared dataset with both text content and metadata, as well as, normalizing the data.
-2. Extract structured information from processed documents in our case n-grans and key terms
-3. Compute text readability and lexical diversity statistics
+2. Extract structured information from processed documents in our case n-grams, key terms, and text readability
 
 <div id='installation'></div>
 
@@ -64,6 +63,46 @@ preprocessor = preproc.make_pipeline(
         preproc.normalize.whitespace)
 preproc_text = preprocessor(record.text)
 ```
+However, we have just done this with a single row in the file. In order to do it over the first 1000 rows of the file, we can write code that looks like this
+```
+records = dataset.records(limit=1000)
+# Using preprocessor from above
+preproc_records = ((preprocessor(text), meta) for text, meta in records)
+```
+### 3.2 Extracting n-grams, key terms, and text readability from the document
+Extracting key terms is something that is made extremely easy in textacy. You will first need to create a corpus (a textacy specific object that holds any number of records) then call teh [extract_keyterms](https://textacy.readthedocs.io/en/0.11.0/api_reference/extract.html?highlight=extract_keyterms#module-textacy.extract.keyterms) function on it. The below example will extract the keyterms from the first record in the dataset. 
+```
+# Using preproc_records from earlier
+corpus = textacy.Corpus("en_core_web_sm", data=preproc_records)
+corpus[0]._.extract_keyterms("textrank", normalize="lemma", window_size=10, edge_weighting="count", topn=10)
+```
+The output of this function would be
+```
+[('year balanced budget plan', 0.033721812470386026),
+ ('Mr. Speaker', 0.032162715590532916),
+ ('Mr. Gingrich', 0.031358819981176664),
+ ('american people', 0.02612752273629427),
+ ('republican leadership', 0.025418705021243045),
+ ('federal employee', 0.021731159162187104),
+ ('Newt Gingrich', 0.01988327361247088),
+ ('pay', 0.018930131314143193),
+ ('involuntary servitude', 0.015559235022115406),
+ ('entire Senate', 0.015032623278646105)]
+```
 
-### 3.2 Extracting n-grams and key terms from the document
+Extracting n-grams is just as easy in textacy. We can use the corpus object above and extract n-grams from the first record in the dataset using an import from textacy. For this example we will extract trigrams. 
+```
+from textacy import extract
+list(extract.ngrams(corpus[0], 3, filter_punct=True))
+```
+The output of the following would be:
+```
+[480,000 Federal employees, employees are working, working without pay, form of involuntary, 280,000 Federal employees, workers have mortgages, mortgages to pay, children to feed, obligations to meet, workers is immoral, continue to hold, hold the House, American people hostage, push their disastrous, year balanced budget, balanced budget plan, gentleman from Georgia, leadership must join, join Senator Dole, Senate and pass, pass a continuing, American people want]
+```
 
+Computing text readability is just as simple as retrieving ngrams or key terms once you have your corpus. You simply have to import a package provided by textacy and call functions from that package. In order to compute text readability we will call the [flesch_kincaid_grade_level](https://textacy.readthedocs.io/en/0.12.0/api_reference/text_stats.html?highlight=flesch_kincaid_grade_level#textacy.text_stats.readability.flesch_kincaid_grade_level) function which will output a number between 1 and 100 that with 100 being a very high reading level and 0 being very low. Below is an example using the first row of our dataset
+```
+from textacy import text_stats as ts
+ts.readability.flesch_kincaid_grade_level(corpus[0])
+# the output of this function would be 11.40259124087591
+```
